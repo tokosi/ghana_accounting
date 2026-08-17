@@ -1,0 +1,28 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": ["levy_name", "rate", "charge_type", "output_account", "input_account", "recoverable"],
+ "fields": [
+  {"fieldname": "levy_name", "fieldtype": "Data", "in_list_view": 1, "columns": 2, "label": "Levy", "reqd": 1},
+  {"fieldname": "rate", "fieldtype": "Percent", "in_list_view": 1, "columns": 1, "label": "Rate (%)", "reqd": 1},
+  {"fieldname": "charge_type", "fieldtype": "Select", "in_list_view": 1, "columns": 2, "label": "Charge Type", "options": "On Net Total\nOn Previous Row Total\nOn Previous Row Amount", "default": "On Net Total", "description": "Act 1151 charges VAT, NHIL and GETFund on the same taxable value, so all three are 'On Net Total'. Compounding reproduces the pre-2026 cascade."},
+  {"fieldname": "output_account", "fieldtype": "Link", "in_list_view": 1, "columns": 2, "label": "Output Account", "options": "Account"},
+  {"fieldname": "input_account", "fieldtype": "Link", "in_list_view": 1, "columns": 2, "label": "Input Account", "options": "Account"},
+  {"fieldname": "recoverable", "fieldtype": "Check", "in_list_view": 1, "columns": 1, "label": "Recoverable", "default": "1", "description": "NHIL and GETFund became recoverable as input tax from 1 January 2026."}
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ghana Accounting",
+ "name": "Ghana Levy Rate",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "idx",
+ "sort_order": "ASC",
+ "states": []
+}
