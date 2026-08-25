@@ -8,8 +8,26 @@
 	fmt_money, formatdate and money_in_words are used, all of which are
 	available server-side.
 -#}
+{#- Guard: this layout reads Journal Entry fields (accounts, total_debit,
+    total_credit). Selected on another doctype it would raise an attribute
+    error mid-render, so it says so plainly instead. -#}
+{%- if doc.doctype != "Journal Entry" -%}
+<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;border:1px solid #E4B9AE;
+     background:#FCF3F0;border-radius:8px;padding:16px 18px;color:#7A2E1B;max-width:640px">
+	<div style="font-weight:700;margin-bottom:6px">Wrong print format for this document</div>
+	<div style="font-size:13px;line-height:1.5">
+		This layout is built for <b>Journal Entry</b> but was applied to
+		<b>{{ doc.doctype }}</b>.
+		{%- if doc.doctype == "Payment Entry" %}
+		Use <b>Ghana Payment Voucher (Payment Entry)</b> instead.
+		{%- endif %}
+	</div>
+</div>
+{%- else -%}
 {%- set company = frappe.get_doc("Company", doc.company) -%}
-{%- set cur = doc.get("currency") or frappe.get_cached_value("Company", doc.company, "default_currency") or "GHS" -%}
+{#- get_cached_value is not exposed in the print sandbox; the company doc is
+    already fetched above, so read default_currency from it. -#}
+{%- set cur = doc.get("currency") or company.get("default_currency") or "GHS" -%}
 
 {#- derive the totals panel from the account rows -#}
 {%- set ns = namespace(withheld=0.0, vat=0.0, gross=0.0, bank=None, cc=None) -%}
@@ -174,8 +192,10 @@
 	<div class="pv-rule"></div>
 	{%- else %}
 	<div class="pv-head">
-		{%- set logo = frappe.db.get_single_value("Website Settings", "app_logo") %}
-		{%- if logo %}<img class="pv-mark" src="{{ logo }}" alt="">{% endif %}
+		{#- Letter Head is the supported way to carry a logo into a print
+		    format. frappe.db lookups are not reliably exposed in the sandbox,
+		    so the logo comes from the letter head or not at all. -#}
+		{%- if company.get("company_logo") %}<img class="pv-mark" src="{{ company.company_logo }}" alt="">{% endif %}
 		<div class="pv-org">
 			<h1>{{ company.name }}</h1>
 			<div class="addr">
@@ -288,7 +308,7 @@
 		<tbody>
 			<tr>
 				<td class="role">Inputter</td>
-				<td class="filled">{{ frappe.db.get_value("User", doc.owner, "full_name") or "" }}</td>
+				<td class="filled">{{ doc.get("owner") or "" }}</td>
 				<td></td>
 				<td class="filled">{{ frappe.utils.formatdate(doc.creation, "dd-MMM-yyyy") }}</td>
 			</tr>
@@ -304,3 +324,5 @@
 	</div>
 
 </div>
+
+{%- endif -%}
