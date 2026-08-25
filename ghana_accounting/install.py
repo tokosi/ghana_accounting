@@ -649,6 +649,15 @@ def setup():
 			title="Ghana Accounting: sidebar skipped", message=frappe.get_traceback()
 		)
 
+    try:
+		from ghana_accounting.voucher_formats import install_vouchers
+
+		install_vouchers()
+	except Exception:
+		frappe.log_error(
+			title="Ghana Accounting: voucher formats skipped", message=frappe.get_traceback()
+		)
+        
 	return result
 
 
