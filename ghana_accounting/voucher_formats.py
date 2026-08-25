@@ -19,9 +19,11 @@ import os
 
 import frappe
 
+# (print format name, template file, doctype)
 FORMATS = [
-	("Ghana Payment Voucher", "ghana_payment_voucher.html"),
-	("Ghana Journal Voucher", "ghana_journal_voucher.html"),
+	("Ghana Payment Voucher", "ghana_payment_voucher.html", "Journal Entry"),
+	("Ghana Journal Voucher", "ghana_journal_voucher.html", "Journal Entry"),
+	("Ghana Payment Voucher (Payment Entry)", "ghana_payment_voucher_pe.html", "Payment Entry"),
 ]
 
 # Fields the Topaz voucher carries that ERPNext's Journal Entry has no
@@ -90,7 +92,7 @@ def install_vouchers():
 
 	directory = _template_dir()
 
-	for name, filename in FORMATS:
+	for name, filename, doctype in FORMATS:
 		path = os.path.join(directory, filename)
 		if not os.path.exists(path):
 			result["missing"].append(path)
@@ -104,7 +106,7 @@ def install_vouchers():
 			doc = frappe.new_doc("Print Format") if is_new else frappe.get_doc("Print Format", name)
 
 			doc.name = name
-			doc.doc_type = "Journal Entry"
+			doc.doc_type = doctype
 			doc.standard = "No"
 			doc.custom_format = 1
 			doc.print_format_type = "Jinja"
@@ -147,14 +149,14 @@ def install_vouchers():
 
 
 @frappe.whitelist()
-def set_default(print_format="Ghana Payment Voucher"):
-	"""Make one of them the default layout for Journal Entry."""
+def set_default(print_format="Ghana Payment Voucher", doctype="Journal Entry"):
+	"""Make one of them the default layout for its doctype."""
 	if not frappe.db.exists("Print Format", print_format):
 		return {"error": "{0} not found".format(print_format)}
 
-	settings = frappe.get_doc("Property Setter", {"doc_type": "Journal Entry", "property": "default_print_format"}) \
+	settings = frappe.get_doc("Property Setter", {"doc_type": doctype, "property": "default_print_format"}) \
 		if frappe.db.exists(
-			"Property Setter", {"doc_type": "Journal Entry", "property": "default_print_format"}
+			"Property Setter", {"doc_type": doctype, "property": "default_print_format"}
 		) else None
 
 	if settings:
@@ -164,7 +166,7 @@ def set_default(print_format="Ghana Payment Voucher"):
 	else:
 		frappe.make_property_setter(
 			{
-				"doctype": "Journal Entry",
+				"doctype": doctype,
 				"doctype_or_field": "DocType",
 				"property": "default_print_format",
 				"value": print_format,
