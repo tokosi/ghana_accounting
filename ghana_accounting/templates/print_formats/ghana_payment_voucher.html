@@ -1,8 +1,8 @@
 {#-
-	Ghana Journal Voucher — Journal Entry
-	Same layout language as the Payment Voucher, but the payee panel is replaced
-	by a balanced debit/credit ledger and the totals panel proves the entry
-	balances before anyone signs it.
+	Ghana Payment Voucher — Journal Entry
+	Carries every field from the Topaz PV: batch, PV ref, cheque details,
+	per-line debit/credit G/L, withholding, VAT+NHIL, cost centre and the four
+	signatory rows.
 
 	No frappe.parse_json here: the print sandbox has no JSON parser. Only
 	fmt_money, formatdate and money_in_words are used, all of which are
@@ -187,7 +187,7 @@
 		</div>
 		<div class="pv-meta">
 			<table>
-				<tr><td class="k">JV No</td><td class="v">{{ doc.name }}</td></tr>
+				<tr><td class="k">PV No</td><td class="v">{{ doc.name }}</td></tr>
 				<tr><td class="k">Voucher Date</td><td class="v">{{ frappe.utils.formatdate(doc.posting_date, "dd-MMM-yyyy") }}</td></tr>
 				<tr><td class="k">Batch No.</td><td class="v">{{ doc.get("gh_batch_no") or doc.get("bill_no") or "&mdash;" }}</td></tr>
 				<tr><td class="k">Type</td><td class="v">{{ doc.voucher_type }}</td></tr>
@@ -197,53 +197,65 @@
 	<div class="pv-rule"></div>
 	{%- endif %}
 
-	<div class="pv-title"><span>Journal Voucher</span></div>
+	<div class="pv-title"><span>Payment Voucher</span></div>
 
-	<p class="pv-sec">Journal Entries</p>
+	<div class="pv-payee">
+		<table>
+			<tr>
+				<td class="k">Pay to the order of</td>
+				<td class="name">{{ doc.get("pay_to_recd_from") or "&mdash;" }}</td>
+				<td class="amt" rowspan="2">
+					{{ frappe.utils.fmt_money(net_paid, currency=cur) }}
+				</td>
+			</tr>
+			<tr>
+				<td class="k">The sum of</td>
+				<td class="words">{{ frappe.utils.money_in_words(net_paid, cur) }}</td>
+			</tr>
+		</table>
+	</div>
+
+	<p class="pv-sec">In settlement of the following</p>
 	<div class="pv-lines-wrap">
 	<table class="pv-lines">
 		<thead>
 			<tr>
 				<th style="width:4%">#</th>
-				<th style="width:24%">Account</th>
-				<th style="width:12%">Party</th>
-				<th style="width:12%">Cost Centre</th>
-				<th>Narration</th>
-				<th class="num" style="width:13%">Debit ({{ cur }})</th>
-				<th class="num" style="width:13%">Credit ({{ cur }})</th>
+				<th style="width:10%">Date</th>
+				<th class="mid" style="width:6%">WH?</th>
+				<th style="width:10%">PV / Ref No.</th>
+				<th>Description</th>
+				<th style="width:14%">Debit G/L</th>
+				<th style="width:14%">Credit G/L</th>
+				<th class="num" style="width:15%">Amount ({{ cur }})</th>
 			</tr>
 		</thead>
 		<tbody>
 			{%- for row in doc.accounts %}
+			{%- if row.debit_in_account_currency %}
 			<tr>
 				<td>{{ loop.index }}</td>
+				<td class="dt">{{ frappe.utils.formatdate(doc.cheque_date or doc.posting_date, "dd-MMM-yyyy") }}</td>
+				<td class="mid">{{ "Yes" if row.get("is_advance") == "Yes" else "No" }}</td>
+				<td>{{ row.get("reference_name") or doc.get("bill_no") or doc.name }}</td>
+				<td>
+					{{ row.get("user_remark") or row.get("party") or doc.get("user_remark") or "&mdash;" }}
+					{%- if row.get("cost_center") %}<div style="color:#6C7680;font-size:9px">{{ row.cost_center }}</div>{% endif %}
+				</td>
 				<td class="gl">{{ row.account }}</td>
-				<td>{{ row.get("party") or "&mdash;" }}</td>
-				<td>{{ row.get("cost_center") or "&mdash;" }}</td>
-				<td>{{ row.get("user_remark") or "&mdash;" }}</td>
-				<td class="num">{% if row.debit_in_account_currency %}{{ frappe.utils.fmt_money(row.debit_in_account_currency, currency=cur) }}{% endif %}</td>
-				<td class="num">{% if row.credit_in_account_currency %}{{ frappe.utils.fmt_money(row.credit_in_account_currency, currency=cur) }}{% endif %}</td>
+				<td class="gl">{{ ns.bank or "&mdash;" }}</td>
+				<td class="num">{{ frappe.utils.fmt_money(row.debit_in_account_currency, currency=cur) }}</td>
 			</tr>
+			{%- endif %}
 			{%- endfor %}
 		</tbody>
 		<tfoot>
 			<tr>
-				<td colspan="5">Totals</td>
+				<td colspan="7">Total</td>
 				<td class="num">{{ frappe.utils.fmt_money(doc.total_debit, currency=cur) }}</td>
-				<td class="num">{{ frappe.utils.fmt_money(doc.total_credit, currency=cur) }}</td>
 			</tr>
 		</tfoot>
 	</table>
-	</div>
-
-	<div class="pv-payee" style="margin-bottom:11px">
-		<table>
-			<tr>
-				<td class="k">Amount in words</td>
-				<td class="words">{{ frappe.utils.money_in_words(doc.total_debit, cur) }}</td>
-				<td class="amt">{{ frappe.utils.fmt_money(doc.total_debit, currency=cur) }}</td>
-			</tr>
-		</table>
 	</div>
 
 	<div class="pv-panel">
@@ -255,21 +267,21 @@
 					<td class="v">{% if doc.get("cheque_date") %}{{ frappe.utils.formatdate(doc.cheque_date, "dd-MMM-yyyy") }}{% else %}&mdash;{% endif %}</td>
 				</tr>
 				<tr>
-					<td class="k">Fiscal Year</td><td class="v">{{ doc.get("fiscal_year") or "&mdash;" }}</td>
-					<td class="k">Reference</td><td class="v">{{ doc.get("bill_no") or "&mdash;" }}</td>
+					<td class="k">Bank / Credit A/C</td><td class="v">{{ ns.bank or "&mdash;" }}</td>
+					<td class="k">Withholding Rate</td><td class="v">{{ "%.2f"|format(doc.get("gh_withholding_rate") or 0) }}</td>
 				</tr>
 				<tr>
 					<td class="k">Cost Center</td><td class="v">{{ ns.cc or "&mdash;" }}</td>
-					<td class="k">Entries</td><td class="v">{{ doc.accounts | length }}</td>
+					<td class="k">Mode of Payment</td><td class="v">{{ doc.get("mode_of_payment") or "&mdash;" }}</td>
 				</tr>
 			</table>
 		</div>
 		<div class="right">
 			<table>
-				<tr><td class="k">Total Debit</td><td class="v">{{ frappe.utils.fmt_money(doc.total_debit, currency=cur) }}</td></tr>
-				<tr><td class="k">Total Credit</td><td class="v">{{ frappe.utils.fmt_money(doc.total_credit, currency=cur) }}</td></tr>
-				<tr><td class="k">Difference</td><td class="v">{{ frappe.utils.fmt_money((doc.total_debit or 0) - (doc.total_credit or 0), currency=cur) }}</td></tr>
-				<tr class="net"><td class="k" style="color:#FFF">{% if (doc.total_debit or 0) == (doc.total_credit or 0) %}Balanced{% else %}OUT OF BALANCE{% endif %}</td><td class="v">{{ frappe.utils.fmt_money(doc.total_debit, currency=cur) }}</td></tr>
+				<tr><td class="k">Total Inv. Amount</td><td class="v">{{ frappe.utils.fmt_money(doc.total_debit, currency=cur) }}</td></tr>
+				<tr><td class="k">Withheld</td><td class="v">{{ frappe.utils.fmt_money(ns.withheld, currency=cur) }}</td></tr>
+				<tr><td class="k">VAT + NHIL</td><td class="v">{{ frappe.utils.fmt_money(ns.vat, currency=cur) }}</td></tr>
+				<tr class="net"><td class="k" style="color:#FFF">Net Amount Paid</td><td class="v">{{ frappe.utils.fmt_money(net_paid, currency=cur) }}</td></tr>
 			</table>
 		</div>
 	</div>
@@ -287,14 +299,14 @@
 		</thead>
 		<tbody>
 			<tr>
-				<td class="role">Inputter</td>
+				<td class="role">Prepared By</td>
 				<td class="filled">{{ frappe.db.get_value("User", doc.owner, "full_name") or "" }}</td>
 				<td></td>
 				<td class="filled">{{ frappe.utils.formatdate(doc.creation, "dd-MMM-yyyy") }}</td>
 			</tr>
 			<tr><td class="role">Checked By</td><td></td><td></td><td></td></tr>
-			<tr><td class="role">Authoriser</td><td></td><td></td><td></td></tr>
-			<tr><td class="role">Posted By</td><td></td><td></td><td></td></tr>
+			<tr><td class="role">Authorised By</td><td></td><td></td><td></td></tr>
+			<tr><td class="role">Received By</td><td></td><td></td><td></td></tr>
 		</tbody>
 	</table>
 
