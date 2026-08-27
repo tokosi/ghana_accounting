@@ -24,12 +24,54 @@ FORMATS = [
 	("Ghana Payment Voucher", "ghana_payment_voucher.html", "Journal Entry"),
 	("Ghana Journal Voucher", "ghana_journal_voucher.html", "Journal Entry"),
 	("Ghana Payment Voucher (Payment Entry)", "ghana_payment_voucher_pe.html", "Payment Entry"),
+	("FEDCO Claim Voucher", "fedco_claim_voucher.html", "Expense Claim"),
 ]
 
 # Fields the Topaz voucher carries that ERPNext's Journal Entry has no
 # equivalent for. Without these the template falls back to bill_no and 0.00,
 # which is correct but loses the batch reference.
 CUSTOM_FIELDS = {
+	"Expense Claim": [
+		{
+			"fieldname": "gh_claim_section",
+			"fieldtype": "Section Break",
+			"label": "Claim Voucher Details",
+			"insert_after": "department",
+			"collapsible": 1,
+		},
+		{
+			"fieldname": "gh_sector_station",
+			"fieldtype": "Data",
+			"label": "Sector / Station",
+			"insert_after": "gh_claim_section",
+		},
+		{
+			"fieldname": "gh_supporting_documents",
+			"fieldtype": "Small Text",
+			"label": "Supporting Documents",
+			"insert_after": "gh_sector_station",
+			"description": "Receipts, invoices and anything else attached to this claim.",
+		},
+		{
+			"fieldname": "gh_claim_cb",
+			"fieldtype": "Column Break",
+			"insert_after": "gh_supporting_documents",
+		},
+		{
+			"fieldname": "gh_supplier_contact",
+			"fieldtype": "Data",
+			"label": "Supplier Contact (if no receipts)",
+			"insert_after": "gh_claim_cb",
+			"description": "Phone number of the supplier where no receipt is available.",
+		},
+		{
+			"fieldname": "gh_recommended_by",
+			"fieldtype": "Link",
+			"options": "Employee",
+			"label": "Recommended By (Head of Department / Supervisor)",
+			"insert_after": "gh_supplier_contact",
+		},
+	],
 	"Journal Entry": [
 		{
 			"fieldname": "gh_voucher_section",
