@@ -1,0 +1,281 @@
+{#-
+	Ghana Claim Voucher — Expense Claim
+
+	Modelled on the FEDCO paper claim voucher. Fields that exist in ERPNext are
+	filled; fields that are signed or completed by hand (applicant signature,
+	approver signatures, accounts-office coding) print as ruled lines so the
+	sheet still works as a wet-signature document.
+
+	Sandbox-safe: uses only frappe.get_doc, frappe.session and frappe.utils
+	fmt_money / formatdate / money_in_words. get_cached_value, db.get_value and
+	parse_json are NOT available in a print format.
+-#}
+{%- if doc.doctype != "Expense Claim" -%}
+<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;border:1px solid #E4B9AE;
+     background:#FCF3F0;border-radius:8px;padding:16px 18px;color:#7A2E1B;max-width:640px">
+	<div style="font-weight:700;margin-bottom:6px">Wrong print format for this document</div>
+	<div style="font-size:13px;line-height:1.5">
+		This layout is built for <b>Expense Claim</b> but was applied to <b>{{ doc.doctype }}</b>.
+	</div>
+</div>
+{%- else -%}
+{%- set company = frappe.get_doc("Company", doc.company) -%}
+{%- set cur = doc.get("currency") or company.get("default_currency") or "GHS" -%}
+{%- set claimed = doc.get("total_claimed_amount") or 0 -%}
+
+<style>
+	@page { size: A4; margin: 12mm 12mm; }
+
+	.cv { font-family: "Inter","Helvetica Neue",Helvetica,Arial,sans-serif;
+		font-size: 11px; line-height: 1.5; color: #1F272E; -webkit-font-smoothing: antialiased; }
+	.cv * { box-sizing: border-box; }
+	/* tables do not inherit font-size and fall back to 16px */
+	.cv table, .cv th, .cv td { font-size: inherit; }
+
+	/* ---- masthead ---- */
+	.cv-head { text-align: center; margin-bottom: 4px; }
+	.cv-head img { height: 52px; margin-bottom: 6px; }
+	.cv-head h1 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: 0.4px; text-transform: uppercase; }
+	.cv-head h2 { font-size: 12.5px; font-weight: 700; margin: 3px 0 0; letter-spacing: 2.6px; text-transform: uppercase; color: #984A35; }
+	.cv-rule { height: 2.5px; border-radius: 2px; margin: 9px 0 12px;
+		background: linear-gradient(90deg,#984A35 0%,#F8C525 48%,#1D9644 100%); }
+
+	.cv-instr { font-style: italic; font-weight: 600; font-size: 10px;
+		color: #4A5560; margin-bottom: 14px; }
+
+	.cv-ref { float: right; border: 1px solid #DFE3E8; border-radius: 5px; padding: 4px 10px;
+		font-size: 9.5px; text-align: right; }
+	.cv-ref b { display: block; font-size: 11px; }
+
+	/* ---- field lines ---- */
+	.f { display: flex; align-items: baseline; gap: 7px; margin-bottom: 11px; }
+	.f .lbl { font-weight: 700; white-space: nowrap; font-size: 10.5px; }
+	.f .val { flex: 1 1 auto; border-bottom: 1px dotted #8A9098; min-height: 17px;
+		padding: 0 3px 1px; font-weight: 600; }
+	.f .val.empty { border-bottom-style: dotted; }
+	.f.half { display: inline-flex; width: 49%; }
+
+	.blk { margin-bottom: 12px; }
+	.blk .lbl { font-weight: 700; font-size: 10.5px; display: block; margin-bottom: 3px; }
+	.blk .box { border: 1px solid #DFE3E8; border-radius: 5px; padding: 7px 9px; min-height: 52px; }
+	.blk .line { border-bottom: 1px dotted #8A9098; height: 17px; }
+
+	.amt-strip { display: flex; gap: 10px; align-items: stretch; margin-bottom: 12px; }
+	.amt-strip .words { flex: 1 1 auto; border: 1px solid #DFE3E8; border-radius: 5px; padding: 7px 9px; }
+	.amt-strip .words .lbl { font-weight: 700; font-size: 9.5px; color: #6C7680;
+		text-transform: uppercase; letter-spacing: 0.7px; }
+	.amt-strip .words .v { font-style: italic; font-weight: 600; }
+	.amt-strip .fig { flex: 0 0 176px; border: 1px solid #DFE3E8; border-radius: 5px;
+		background: #FBF7F5; padding: 7px 9px; text-align: right; }
+	.amt-strip .fig .lbl { font-weight: 700; font-size: 9.5px; color: #6C7680;
+		text-transform: uppercase; letter-spacing: 0.7px; }
+	.amt-strip .fig .v { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+	/* ---- tables ---- */
+	table.t { width: 100%; border-collapse: collapse; }
+	table.t th { background: #F4F6F8; border: 1px solid #DFE3E8; padding: 4px 6px;
+		font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+		color: #4A5560; text-align: left; }
+	table.t td { border: 1px solid #DFE3E8; padding: 4px 6px; vertical-align: top; }
+	table.t td.num, table.t th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+	table.t tfoot td { font-weight: 700; background: #F4F6F8; }
+
+	.sec { font-size: 9px; font-weight: 700; text-transform: uppercase;
+		letter-spacing: 1.1px; color: #6C7680; margin: 0 0 4px; }
+
+	/* ---- signature blocks ---- */
+	.sig-grid { display: flex; gap: 12px; margin-top: 12px; }
+	.sig-grid > div { flex: 1 1 0; border: 1px solid #DFE3E8; border-radius: 6px; padding: 9px 11px; }
+	.sig-grid h4 { margin: 0 0 8px; font-size: 9.5px; font-weight: 700;
+		text-transform: uppercase; letter-spacing: 0.9px; color: #984A35; }
+	.sig-row { display: flex; align-items: baseline; gap: 7px; margin-bottom: 9px; }
+	.sig-row .k { width: 74px; font-size: 9.5px; color: #6C7680; font-weight: 600; }
+	.sig-row .l { flex: 1 1 auto; border-bottom: 1px solid #1F272E; min-height: 15px;
+		padding-bottom: 1px; font-weight: 600; font-size: 10px; }
+	.sig-note { font-size: 8.5px; color: #6C7680; font-style: italic; margin-top: 2px; }
+
+	.accts-band { text-align: center; font-size: 9px; font-weight: 700;
+		text-transform: uppercase; letter-spacing: 1.4px; background: #F4F6F8;
+		border: 1px solid #DFE3E8; border-bottom: none; padding: 4px; margin-top: 14px; }
+
+	.cv-foot { margin-top: 12px; padding-top: 7px; border-top: 1px solid #DFE3E8;
+		display: flex; justify-content: space-between; gap: 10px;
+		color: #6C7680; font-size: 8.5px; text-align: center; }
+	.cv-foot div { flex: 1 1 0; }
+	.cv-foot .mid { font-weight: 700; color: #4A5560; }
+
+	@media screen {
+		.cv { max-width: 210mm; margin: 0 auto; padding: 12mm; background: #FFF;
+			box-shadow: 0 2px 14px rgba(31,39,46,.12); }
+	}
+	@media print {
+		.cv { padding: 0; box-shadow: none; }
+		.sig-grid, table.t { page-break-inside: avoid; }
+	}
+	@media screen and (max-width: 780px) {
+		.sig-grid, .amt-strip { flex-direction: column; }
+		.amt-strip .fig { flex: 1 1 auto; text-align: left; }
+		.f.half { display: flex; width: 100%; }
+		.cv-foot { flex-direction: column; }
+	}
+</style>
+
+<div class="cv">
+
+	{%- if doc.get("letter_head") and doc.get("_letter_head") %}
+	<div>{{ doc._letter_head }}</div>
+	{%- else %}
+	<div class="cv-head">
+		{%- if company.get("company_logo") %}<img src="{{ company.company_logo }}" alt="">{% endif %}
+		<h1>{{ company.name }}</h1>
+		<h2>Claim Voucher</h2>
+	</div>
+	{%- endif %}
+	<div class="cv-rule"></div>
+
+	<div class="cv-ref">
+		<b>{{ doc.name }}</b>
+		{{ frappe.utils.formatdate(doc.posting_date, "dd-MMM-yyyy") }}
+	</div>
+	<p class="cv-instr">Instructions: Complete form and attach all required information.</p>
+	<div style="clear:both"></div>
+
+	<div class="f">
+		<span class="lbl">Name of Applicant:</span>
+		<span class="val">{{ doc.get("employee_name") or "" }}</span>
+	</div>
+
+	<div class="f">
+		<span class="lbl">Department:</span>
+		<span class="val">{{ doc.get("department") or "" }}</span>
+		<span class="lbl" style="margin-left:10px">Sector/Station:</span>
+		<span class="val">{{ doc.get("gh_sector_station") or doc.get("cost_center") or "" }}</span>
+	</div>
+
+	<div class="amt-strip">
+		<div class="words">
+			<div class="lbl">Amount in words</div>
+			<div class="v">{{ frappe.utils.money_in_words(claimed, cur) }}</div>
+		</div>
+		<div class="fig">
+			<div class="lbl">Amount ({{ cur }})</div>
+			<div class="v">{{ frappe.utils.fmt_money(claimed, currency=cur) }}</div>
+		</div>
+	</div>
+
+	<div class="blk">
+		<span class="lbl">Nature of Claim:</span>
+		<div class="box">
+			{%- if doc.expenses %}
+			<table class="t">
+				<thead>
+					<tr>
+						<th style="width:5%">#</th>
+						<th style="width:14%">Date</th>
+						<th style="width:24%">Expense Type</th>
+						<th>Description</th>
+						<th class="num" style="width:16%">Amount ({{ cur }})</th>
+					</tr>
+				</thead>
+				<tbody>
+					{%- for e in doc.expenses %}
+					<tr>
+						<td>{{ loop.index }}</td>
+						<td>{{ frappe.utils.formatdate(e.get("expense_date") or doc.posting_date, "dd-MMM-yyyy") }}</td>
+						<td>{{ e.get("expense_type") or "" }}</td>
+						<td>{{ e.get("description") or "" }}</td>
+						<td class="num">{{ frappe.utils.fmt_money(e.get("amount") or 0, currency=cur) }}</td>
+					</tr>
+					{%- endfor %}
+				</tbody>
+				<tfoot>
+					<tr><td colspan="4">Total Claimed</td>
+					<td class="num">{{ frappe.utils.fmt_money(claimed, currency=cur) }}</td></tr>
+				</tfoot>
+			</table>
+			{%- else %}
+			<div class="line"></div><div class="line"></div><div class="line"></div>
+			{%- endif %}
+		</div>
+	</div>
+
+	<div class="f">
+		<span class="lbl">Supporting Documents (receipts, invoices, etc):</span>
+		<span class="val">{{ doc.get("gh_supporting_documents") or "" }}</span>
+	</div>
+
+	<div class="f">
+		<span class="lbl">Contact details of supplier &mdash; phone number (if no receipts):</span>
+		<span class="val">{{ doc.get("gh_supplier_contact") or "" }}</span>
+	</div>
+
+	<div class="sig-grid">
+		<div>
+			<h4>Applicant</h4>
+			<div class="sig-row"><span class="k">Name</span><span class="l">{{ doc.get("employee_name") or "" }}</span></div>
+			<div class="sig-row"><span class="k">Signature</span><span class="l"></span></div>
+			<div class="sig-row"><span class="k">Date</span><span class="l">{{ frappe.utils.formatdate(doc.posting_date, "dd-MMM-yyyy") }}</span></div>
+		</div>
+		<div>
+			<h4>Recommended By</h4>
+			<div class="sig-row"><span class="k">Name</span><span class="l"></span></div>
+			<div class="sig-row"><span class="k">Signature</span><span class="l"></span></div>
+			<div class="sig-row"><span class="k">Date</span><span class="l"></span></div>
+			<div class="sig-note">Head of Department / Supervisor</div>
+		</div>
+		<div>
+			<h4>Approved By</h4>
+			<div class="sig-row"><span class="k">Name</span><span class="l">{{ doc.get("expense_approver_name") or "" }}</span></div>
+			<div class="sig-row"><span class="k">Signature</span><span class="l"></span></div>
+			<div class="sig-row"><span class="k">Status</span><span class="l">{{ doc.get("approval_status") or doc.get("workflow_state") or "" }}</span></div>
+			<div class="sig-row"><span class="k">Date</span><span class="l"></span></div>
+		</div>
+	</div>
+
+	<div class="accts-band">Accounts Office Use Only</div>
+	<table class="t">
+		<thead>
+			<tr>
+				<th style="width:5%">#</th>
+				<th>Item</th>
+				<th class="num" style="width:16%">Amount ({{ cur }})</th>
+				<th style="width:24%">Account Code</th>
+			</tr>
+		</thead>
+		<tbody>
+			{#- Six rows always: filled from the claim where available, ruled
+			    where not, so the sheet matches the paper form either way. -#}
+			{%- for i in range(6) %}
+			{%- set e = doc.expenses[i] if doc.expenses and i < (doc.expenses | length) else None %}
+			<tr>
+				<td>{{ i + 1 }}</td>
+				<td>{% if e %}{{ e.get("expense_type") or e.get("description") or "" }}{% endif %}</td>
+				<td class="num">{% if e %}{{ frappe.utils.fmt_money(e.get("amount") or 0, currency=cur) }}{% endif %}</td>
+				<td>{% if e %}{{ e.get("default_account") or "" }}{% endif %}</td>
+			</tr>
+			{%- endfor %}
+		</tbody>
+		<tfoot>
+			<tr>
+				<td colspan="2">Total</td>
+				<td class="num">{{ frappe.utils.fmt_money(doc.get("total_sanctioned_amount") or claimed, currency=cur) }}</td>
+				<td></td>
+			</tr>
+		</tfoot>
+	</table>
+
+	<div class="cv-foot">
+		<div>
+			{%- if company.get("phone_no") %}Tel: {{ company.phone_no }}{% endif %}
+		</div>
+		<div class="mid">
+			{{ company.name }}<br>
+			{%- if company.get("tax_id") %}TIN: {{ company.tax_id }}{% endif %}
+		</div>
+		<div>
+			{%- if company.get("fax") %}Fax: {{ company.fax }}{% endif %}
+		</div>
+	</div>
+
+</div>
+{%- endif -%}

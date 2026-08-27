@@ -1,0 +1,250 @@
+{#-
+	FEDCO Claim Voucher — Expense Claim
+
+	Modelled on the Federated Commodities claim voucher. Prints usable either
+	way: filled from the Expense Claim when the data exists, or with dotted
+	rules to complete by hand when it does not, which is how the paper form is
+	used today.
+
+	Sandbox note: only frappe.get_doc, frappe.session.user and the
+	frappe.utils helpers are used. get_cached_value, db.get_value and
+	parse_json all raise "module has no attribute" inside a print format.
+-#}
+{%- if doc.doctype != "Expense Claim" -%}
+<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;border:1px solid #E4B9AE;
+     background:#FCF3F0;border-radius:8px;padding:16px 18px;color:#7A2E1B;max-width:640px">
+	<div style="font-weight:700;margin-bottom:6px">Wrong print format for this document</div>
+	<div style="font-size:13px">This layout is built for <b>Expense Claim</b> but was applied to <b>{{ doc.doctype }}</b>.</div>
+</div>
+{%- else -%}
+{%- set company = frappe.get_doc("Company", doc.company) -%}
+{%- set cur = company.get("default_currency") or "GHS" -%}
+{%- set total = doc.get("total_claimed_amount") or doc.get("total_sanctioned_amount") or 0 -%}
+
+<style>
+	@page { size: A4; margin: 12mm 12mm; }
+
+	.cv { font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+	      font-size: 11px; line-height: 1.5; color: #1F272E; }
+	.cv * { box-sizing: border-box; }
+	/* tables do not inherit font-size and fall back to 16px */
+	.cv table, .cv th, .cv td { font-size: inherit; }
+
+	/* ---- masthead ---- */
+	.cv-head { text-align: center; padding-bottom: 8px; }
+	.cv-head img { height: 52px; margin-bottom: 6px; }
+	.cv-head h1 { font-size: 16px; font-weight: 700; margin: 0; letter-spacing: 0.4px; }
+	.cv-head h2 { font-size: 12.5px; font-weight: 700; margin: 3px 0 0;
+	              letter-spacing: 2.6px; text-transform: uppercase; }
+	.cv-rule { height: 2.5px; border-radius: 2px; margin: 9px 0 12px;
+	           background: linear-gradient(90deg,#984A35 0%,#F8C525 48%,#1D9644 100%); }
+
+	.cv-instr { font-style: italic; font-weight: 600; font-size: 10.5px;
+	            margin-bottom: 14px; color: #4A5560; }
+
+	/* ---- fill-in fields ---- */
+	.fld { margin-bottom: 11px; display: flex; align-items: baseline; gap: 6px; }
+	.fld .lbl { font-weight: 700; white-space: nowrap; }
+	.fld .val { flex: 1 1 auto; border-bottom: 1px dotted #8A9199;
+	            min-height: 16px; padding: 0 4px 1px; }
+	.fld .val.filled { border-bottom: 1px solid #1F272E; font-weight: 600; }
+	.fld .val.blank::after { content: ""; }
+
+	.two { display: flex; gap: 18px; }
+	.two > .fld { flex: 1 1 0; }
+
+	.rules div { border-bottom: 1px dotted #8A9199; height: 17px; margin-bottom: 5px; }
+
+	/* ---- signature blocks ---- */
+	.cv-applicant { margin: 16px 0 18px; display: flex; justify-content: flex-end; }
+	.cv-applicant .box { width: 58%; }
+
+	.cv-approve { display: flex; gap: 26px; margin-bottom: 16px; }
+	.cv-approve > div { flex: 1 1 0; }
+	.cv-approve h3 { font-size: 10.5px; font-weight: 700; letter-spacing: 0.9px;
+	                 text-transform: uppercase; margin: 0 0 10px; color: #1F272E; }
+	.sigline { display: flex; align-items: baseline; gap: 8px; margin-bottom: 13px; }
+	.sigline .k { font-size: 10px; font-weight: 700; letter-spacing: 0.4px;
+	              text-transform: uppercase; width: 78px; flex: 0 0 78px; }
+	.sigline .v { flex: 1 1 auto; border-bottom: 1px solid #1F272E; min-height: 15px; padding: 0 4px 1px; }
+	.sigline .v.filled { font-weight: 600; }
+	.cv-approve .note { font-size: 9.5px; font-weight: 700; color: #4A5560; }
+
+	/* ---- accounts office ---- */
+	.cv-acct-title { text-align: center; font-size: 10px; font-weight: 700;
+	                 letter-spacing: 1.3px; text-transform: uppercase; margin-bottom: 5px; }
+	table.cv-acct { width: 100%; border-collapse: collapse; }
+	table.cv-acct th { background: #F4F6F8; border: 1px solid #1F272E; padding: 4px 6px;
+	                   font-size: 9.5px; font-weight: 700; text-align: left; }
+	table.cv-acct td { border: 1px solid #1F272E; padding: 5px 6px; height: 24px; vertical-align: middle; }
+	table.cv-acct td.num, table.cv-acct th.num { text-align: right;
+	                   font-variant-numeric: tabular-nums; white-space: nowrap; }
+	table.cv-acct .dots { color: #8A9199; }
+
+	/* ---- footer ---- */
+	.cv-foot { margin-top: 16px; padding-top: 8px; border-top: 1px solid #DFE3E8;
+	           display: flex; justify-content: space-between; align-items: flex-start;
+	           font-size: 9px; color: #4A5560; }
+	.cv-foot .mid { text-align: center; font-weight: 700; }
+	.cv-foot .right { text-align: right; }
+
+	@media screen {
+		.cv { max-width: 210mm; margin: 0 auto; padding: 12mm; background: #FFF;
+		      box-shadow: 0 2px 14px rgba(31,39,46,.12); }
+	}
+	@media print {
+		.cv { padding: 0; box-shadow: none; }
+		.cv-approve, table.cv-acct { page-break-inside: avoid; }
+	}
+	@media screen and (max-width: 720px) {
+		.two, .cv-approve { flex-direction: column; gap: 0; }
+		.cv-applicant .box { width: 100%; }
+	}
+</style>
+
+<div class="cv">
+
+	<div class="cv-head">
+		{%- if company.get("company_logo") %}<img src="{{ company.company_logo }}" alt="">{% endif %}
+		<h1>{{ company.name | upper }}</h1>
+		<h2>Claim Voucher</h2>
+	</div>
+	<div class="cv-rule"></div>
+
+	<p class="cv-instr">Instructions: Complete form and attach all required information.</p>
+
+	<div class="fld">
+		<span class="lbl">Name of Applicant:</span>
+		<span class="val {% if doc.get('employee_name') %}filled{% endif %}">{{ doc.get("employee_name") or "" }}</span>
+	</div>
+
+	<div class="two">
+		<div class="fld">
+			<span class="lbl">Department:</span>
+			<span class="val {% if doc.get('department') %}filled{% endif %}">{{ doc.get("department") or "" }}</span>
+		</div>
+		<div class="fld">
+			<span class="lbl">Sector/Station:</span>
+			<span class="val {% if doc.get('gh_sector_station') %}filled{% endif %}">{{ doc.get("gh_sector_station") or "" }}</span>
+		</div>
+	</div>
+
+	<div class="fld">
+		<span class="lbl">Amount: ({{ cur }}</span>
+		<span class="val {% if total %}filled{% endif %}" style="max-width:150px">{% if total %}{{ "{:,.2f}".format(total) }}{% endif %}</span>
+		<span class="lbl">)&nbsp;&nbsp;Amount in words:</span>
+		<span class="val {% if total %}filled{% endif %}">{% if total %}{{ frappe.utils.money_in_words(total, cur) }}{% endif %}</span>
+	</div>
+
+	<div class="fld">
+		<span class="lbl">Nature of Claim:</span>
+		<span class="val {% if doc.get('remark') %}filled{% endif %}">{{ doc.get("remark") or "" }}</span>
+	</div>
+	{%- if doc.get("expenses") %}
+	<div style="margin:-4px 0 11px 0">
+		{%- for e in doc.expenses %}
+		<div style="border-bottom:1px dotted #8A9199;padding:2px 4px;display:flex;justify-content:space-between">
+			<span>{{ e.get("expense_type") }}{% if e.get("description") %} &mdash; {{ e.description }}{% endif %}</span>
+			<span style="font-weight:600;font-variant-numeric:tabular-nums">{{ frappe.utils.fmt_money(e.get("amount") or 0, currency=cur) }}</span>
+		</div>
+		{%- endfor %}
+	</div>
+	{%- else %}
+	<div class="rules"><div></div><div></div></div>
+	{%- endif %}
+
+	<div class="fld">
+		<span class="lbl">Supporting Documents: (Receipts, Invoices, etc)</span>
+		<span class="val {% if doc.get('gh_supporting_documents') %}filled{% endif %}">{{ doc.get("gh_supporting_documents") or "" }}</span>
+	</div>
+
+	<div class="fld">
+		<span class="lbl">Contact Details of Supplier &mdash; Phone number (if no receipts):</span>
+		<span class="val {% if doc.get('gh_supplier_contact') %}filled{% endif %}">{{ doc.get("gh_supplier_contact") or "" }}</span>
+	</div>
+
+	<div class="cv-applicant">
+		<div class="box">
+			<div class="sigline">
+				<span class="k" style="width:150px;flex:0 0 150px">Signature of Applicant</span>
+				<span class="v"></span>
+			</div>
+			<div class="sigline">
+				<span class="k" style="width:150px;flex:0 0 150px">Date</span>
+				<span class="v filled">{% if doc.get("posting_date") %}{{ frappe.utils.formatdate(doc.posting_date, "dd-MMM-yyyy") }}{% endif %}</span>
+			</div>
+		</div>
+	</div>
+
+	<div class="cv-approve">
+		<div>
+			<h3>Approved By</h3>
+			<div class="sigline"><span class="k">Signature</span><span class="v"></span></div>
+			<div class="sigline">
+				<span class="k">Status</span>
+				<span class="v {% if doc.get('approval_status') %}filled{% endif %}">{{ doc.get("approval_status") or "" }}</span>
+			</div>
+			<div class="sigline"><span class="k">Date</span><span class="v"></span></div>
+		</div>
+		<div>
+			<h3>Recommended By</h3>
+			<div class="sigline"><span class="k">Signature</span><span class="v"></span></div>
+			<div class="sigline"><span class="k">Date</span><span class="v"></span></div>
+			<div class="note">(Head of Department / Supervisor)</div>
+		</div>
+	</div>
+
+	<div class="cv-acct-title">Accounts Office Use Only</div>
+	<table class="cv-acct">
+		<thead>
+			<tr>
+				<th style="width:20%">Item</th>
+				<th class="num" style="width:15%">Amount</th>
+				<th style="width:15%">Account Code</th>
+				<th style="width:20%">Item</th>
+				<th class="num" style="width:15%">Amount</th>
+				<th style="width:15%">Account Code</th>
+			</tr>
+		</thead>
+		<tbody>
+			{#- The paper form has six numbered slots in two columns. Rows 1-3 sit
+			    left, 4-6 right, so expense lines are placed into that grid. -#}
+			{%- set lines = doc.get("expenses") or [] -%}
+			{%- for i in range(3) %}
+			{%- set l = lines[i] if lines | length > i else None -%}
+			{%- set r = lines[i + 3] if lines | length > i + 3 else None -%}
+			<tr>
+				<td>{{ i + 1 }}. {% if l %}{{ l.get("expense_type") }}{% else %}<span class="dots">&hellip;&hellip;&hellip;&hellip;&hellip;</span>{% endif %}</td>
+				<td class="num">{% if l %}{{ "{:,.2f}".format(l.get("amount") or 0) }}{% else %}<span class="dots">&hellip;&hellip;&hellip;</span>{% endif %}</td>
+				<td>{% if l and l.get("default_account") %}{{ l.default_account }}{% else %}<span class="dots">&hellip;&hellip;&hellip;</span>{% endif %}</td>
+				<td>{{ i + 4 }}. {% if r %}{{ r.get("expense_type") }}{% else %}<span class="dots">&hellip;&hellip;&hellip;&hellip;&hellip;</span>{% endif %}</td>
+				<td class="num">{% if r %}{{ "{:,.2f}".format(r.get("amount") or 0) }}{% else %}<span class="dots">&hellip;&hellip;&hellip;</span>{% endif %}</td>
+				<td>{% if r and r.get("default_account") %}{{ r.default_account }}{% else %}<span class="dots">&hellip;&hellip;&hellip;</span>{% endif %}</td>
+			</tr>
+			{%- endfor %}
+			{%- if total %}
+			<tr>
+				<td colspan="4" style="font-weight:700;text-align:right">Total Claimed</td>
+				<td class="num" style="font-weight:700">{{ "{:,.2f}".format(total) }}</td>
+				<td></td>
+			</tr>
+			{%- endif %}
+		</tbody>
+	</table>
+
+	<div class="cv-foot">
+		<div>
+			{%- if company.get("phone_no") %}Tel: {{ company.phone_no }}{% endif %}
+		</div>
+		<div class="mid">
+			{{ company.name }}<br>
+			{%- if company.get("tax_id") %}TIN: {{ company.tax_id }}{% endif %}
+		</div>
+		<div class="right">
+			{%- if company.get("fax") %}Fax: {{ company.fax }}{% endif %}
+			{%- if doc.get("name") %}<br>Ref: {{ doc.name }}{% endif %}
+		</div>
+	</div>
+
+</div>
+{%- endif -%}
