@@ -55,6 +55,20 @@
 
 	.rules div { border-bottom: 1px dotted #8A9199; height: 17px; margin-bottom: 5px; }
 
+	/* ---- supporting documents ---- */
+	table.cv-docs{width:100%;border-collapse:collapse;margin:2px 0 12px}
+	table.cv-docs th{background:#F4F6F8;border:1px solid #C7CDD3;padding:4px 6px;
+	                 font-size:9px;font-weight:700;text-align:left;text-transform:uppercase;
+	                 letter-spacing:.4px}
+	table.cv-docs td{border:1px solid #C7CDD3;padding:4px 6px;font-size:10px}
+	table.cv-docs td.num,table.cv-docs th.num{text-align:right;
+	                 font-variant-numeric:tabular-nums;white-space:nowrap}
+	.tick{color:#106B2E;font-weight:700}
+	.cross{color:#A32D18;font-weight:700}
+	.dots{color:#8A9199}
+	.cv-attnote{font-size:10px;padding:6px 9px;border-radius:5px;margin:2px 0 12px;
+	            background:#F7F9FA;border:1px solid #DFE3E8}
+
 	/* ---- signature blocks ---- */
 	.cv-applicant { margin: 16px 0 18px; display: flex; justify-content: flex-end; }
 	.cv-applicant .box { width: 58%; }
@@ -157,6 +171,40 @@
 		<span class="lbl">Supporting Documents: (Receipts, Invoices, etc)</span>
 		<span class="val {% if doc.get('gh_supporting_documents') %}filled{% endif %}">{{ doc.get("gh_supporting_documents") or "" }}</span>
 	</div>
+
+	{#- Itemised documents, when the claimant listed them. The summary field is
+	    written on validate because the print sandbox cannot query the File
+	    table, so what is attached has to already be on the document. -#}
+	{%- if doc.get("gh_documents") %}
+	<table class="cv-docs">
+		<thead>
+			<tr>
+				<th style="width:5%">#</th>
+				<th style="width:26%">Document</th>
+				<th style="width:24%">Reference / No.</th>
+				<th class="num" style="width:18%">Amount</th>
+				<th style="width:14%">Attached</th>
+				<th style="width:13%">Verified</th>
+			</tr>
+		</thead>
+		<tbody>
+			{%- for d in doc.gh_documents %}
+			<tr>
+				<td>{{ loop.index }}</td>
+				<td><b>{{ d.get("document_type") or "Document" }}</b></td>
+				<td>{{ d.get("reference") or "&mdash;" }}</td>
+				<td class="num">{% if d.get("amount") %}{{ "{:,.2f}".format(d.amount) }}{% else %}&mdash;{% endif %}</td>
+				<td>{% if d.get("attachment") %}<span class="tick">&#10003; Yes</span>{% else %}<span class="cross">No</span>{% endif %}</td>
+				<td>{% if d.get("verified") %}<span class="tick">&#10003;</span>{% else %}<span class="dots">&hellip;&hellip;</span>{% endif %}</td>
+			</tr>
+			{%- endfor %}
+		</tbody>
+	</table>
+	{%- elif doc.get("gh_has_attachments") %}
+	<div class="cv-attnote tick">&#10003; {{ doc.get("gh_attachment_count") or "" }} supporting document(s) attached to this claim.</div>
+	{%- else %}
+	<div class="cv-attnote cross">No supporting document attached &mdash; supplier contact recorded below in lieu of a receipt.</div>
+	{%- endif %}
 
 	<div class="fld">
 		<span class="lbl">Contact Details of Supplier &mdash; Phone number (if no receipts):</span>
