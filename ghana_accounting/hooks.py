@@ -36,3 +36,13 @@ after_migrate = "ghana_accounting.install.after_migrate"
 before_uninstall = "ghana_accounting.install.before_uninstall"
 
 fixtures = []
+
+doc_events = {
+	"Expense Claim": {
+		"validate": "ghana_accounting.claim_documents.validate_claim_documents",
+	},
+}
+
+doctype_js = {
+	"Expense Claim": "public/js/expense_claim.js",
+}
