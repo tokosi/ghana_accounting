@@ -38,6 +38,10 @@ before_uninstall = "ghana_accounting.install.before_uninstall"
 fixtures = []
 
 doc_events = {
+	"Journal Entry": {
+		"autoname": "ghana_accounting.voucher_rules.autoname_journal_entry",
+		"validate": "ghana_accounting.voucher_rules.validate_journal_entry",
+	},
 	"Expense Claim": {
 		"validate": "ghana_accounting.claim_documents.validate_claim_documents",
 	},
