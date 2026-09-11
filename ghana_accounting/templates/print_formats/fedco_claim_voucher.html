@@ -69,6 +69,17 @@
 	.cv-attnote{font-size:10px;padding:6px 9px;border-radius:5px;margin:2px 0 12px;
 	            background:#F7F9FA;border:1px solid #DFE3E8}
 
+	/* ---- embedded proofs ---- */
+	.cv-proofs{margin:2px 0 12px}
+	.cv-proofs-head{font-size:9px;font-weight:700;text-transform:uppercase;
+	                letter-spacing:1px;color:#4A5560;margin-bottom:5px}
+	.cv-proof-grid{display:flex;flex-wrap:wrap;gap:8px}
+	.cv-proof-grid figure{margin:0;border:1px solid #C7CDD3;border-radius:4px;
+	                padding:4px;width:calc(25% - 6px);page-break-inside:avoid}
+	.cv-proof-grid img{width:100%;height:88px;object-fit:cover;display:block;border-radius:2px}
+	.cv-proof-grid figcaption{font-size:8px;color:#4A5560;margin-top:3px;
+	                text-align:center;line-height:1.3}
+
 	/* ---- signature blocks ---- */
 	.cv-applicant { margin: 16px 0 18px; display: flex; justify-content: flex-end; }
 	.cv-applicant .box { width: 58%; }
@@ -204,6 +215,30 @@
 	<div class="cv-attnote tick">&#10003; {{ doc.get("gh_attachment_count") or "" }} supporting document(s) attached to this claim.</div>
 	{%- else %}
 	<div class="cv-attnote cross">No supporting document attached &mdash; supplier contact recorded below in lieu of a receipt.</div>
+	{%- endif %}
+
+	{#- Image proofs are embedded so the printed voucher carries the evidence
+	    with it. PDFs cannot be inlined in a print format, so those appear in
+	    the table above as a reference line only. -#}
+	{%- set images = [] -%}
+	{%- for d in doc.get("gh_documents") or [] -%}
+		{%- set url = (d.get("attachment") or "") | lower -%}
+		{%- if url.endswith(".png") or url.endswith(".jpg") or url.endswith(".jpeg") or url.endswith(".webp") -%}
+			{%- set _ = images.append(d) -%}
+		{%- endif -%}
+	{%- endfor -%}
+	{%- if images %}
+	<div class="cv-proofs">
+		<div class="cv-proofs-head">Attached Proof</div>
+		<div class="cv-proof-grid">
+			{%- for d in images %}
+			<figure>
+				<img src="{{ d.attachment }}" alt="">
+				<figcaption>{{ d.get("document_type") }}{% if d.get("reference") %} &middot; {{ d.reference }}{% endif %}</figcaption>
+			</figure>
+			{%- endfor %}
+		</div>
+	</div>
 	{%- endif %}
 
 	<div class="fld">
