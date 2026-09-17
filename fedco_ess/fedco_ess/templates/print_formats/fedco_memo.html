@@ -1,0 +1,209 @@
+{#-
+	FEDCO Memo print format.
+
+	Follows the house memo: company name, MEMO heading, the FROM / THROUGH / TO
+	/ DATE / SUBJECT block with aligned colons, body, an optional costed table,
+	closing line and signature.
+
+	Sandbox note: only frappe.get_doc and frappe.utils helpers are used.
+	get_cached_value, db.get_value and parse_json all raise inside a print
+	format.
+-#}
+{%- if doc.doctype != "FEDCO Memo" -%}
+<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;border:1px solid #E4B9AE;
+     background:#FCF3F0;border-radius:8px;padding:16px 18px;color:#7A2E1B;max-width:640px">
+	<b>Wrong print format</b><br>Built for FEDCO Memo, applied to {{ doc.doctype }}.
+</div>
+{%- else -%}
+{%- set company = frappe.get_doc("Company", doc.company) -%}
+{%- set cur = company.get("default_currency") or "GHS" -%}
+
+<style>
+	@page { size: A4; margin: 16mm 18mm; }
+
+	.memo { font-family: "Times New Roman", Georgia, serif; font-size: 12px;
+	        line-height: 1.6; color: #1A1A1A; }
+	.memo * { box-sizing: border-box; }
+	.memo table, .memo th, .memo td { font-size: inherit; }
+
+	/* ---- masthead ---- */
+	.memo-head { text-align: center; margin-bottom: 4px; }
+	.memo-head img { height: 58px; margin-bottom: 4px; }
+	.memo-head h1 { font-size: 15px; font-weight: 700; margin: 0;
+	                letter-spacing: .6px; text-transform: uppercase; }
+	.memo-head .addr { font-size: 10px; color: #444; margin-top: 2px; }
+
+	.memo-title { text-align: center; margin: 14px 0 18px; }
+	.memo-title span { font-size: 15px; font-weight: 700; letter-spacing: 4px;
+	                   text-transform: uppercase; border-bottom: 1.5px solid #1A1A1A;
+	                   padding-bottom: 2px; }
+
+	/* ---- routing block: aligned colons, as typed on the house template ---- */
+	table.memo-route { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+	table.memo-route td { padding: 3px 0; vertical-align: top; }
+	table.memo-route td.k { width: 96px; font-weight: 700; text-transform: uppercase;
+	                        letter-spacing: .4px; }
+	table.memo-route td.c { width: 18px; font-weight: 700; }
+	table.memo-route td.v { font-weight: 700; text-transform: uppercase; }
+	table.memo-route td.v.subject { text-transform: uppercase; }
+
+	.memo-hr { border: none; border-top: 1.2px solid #1A1A1A; margin: 0 0 16px; }
+
+	/* ---- body ---- */
+	.memo-body { text-align: justify; }
+	.memo-body p { margin: 0 0 10px; }
+	.memo-body ul, .memo-body ol { margin: 0 0 10px 18px; padding: 0; }
+	.memo-body li { margin-bottom: 5px; }
+	.memo-body strong, .memo-body b { font-weight: 700; }
+
+	/* ---- costed table ---- */
+	table.memo-items { width: 100%; border-collapse: collapse; margin: 12px 0 14px;
+	                   font-size: 11px; }
+	table.memo-items th { border: 1px solid #1A1A1A; padding: 5px 6px; background: #EFEFEF;
+	                      font-weight: 700; text-align: left; text-transform: uppercase;
+	                      font-size: 10px; letter-spacing: .3px; }
+	table.memo-items td { border: 1px solid #1A1A1A; padding: 5px 6px; vertical-align: top; }
+	table.memo-items td.num, table.memo-items th.num { text-align: right;
+	                      font-variant-numeric: tabular-nums; white-space: nowrap; }
+	table.memo-items tr.total td { font-weight: 700; background: #EFEFEF; }
+
+	/* ---- closing ---- */
+	.memo-close { margin-top: 16px; }
+	.memo-sign { margin-top: 34px; }
+	.memo-sign .line { width: 210px; border-bottom: 1px solid #1A1A1A; margin-bottom: 4px; }
+	.memo-sign .nm { font-weight: 700; }
+	.memo-sign .dg { font-size: 11px; color: #444; }
+
+	.memo-copy { margin-top: 20px; font-size: 11px; }
+	.memo-copy .k { font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+
+	.memo-foot { margin-top: 22px; padding-top: 6px; border-top: 1px solid #BBB;
+	             font-size: 9px; color: #666; display: flex; justify-content: space-between; }
+
+	@media screen {
+		.memo { max-width: 210mm; margin: 0 auto; padding: 16mm 18mm; background: #fff;
+		        box-shadow: 0 2px 14px rgba(0,0,0,.12); }
+	}
+	@media print {
+		.memo { padding: 0; box-shadow: none; }
+		table.memo-items { page-break-inside: auto; }
+		table.memo-items tr { page-break-inside: avoid; }
+		.memo-sign { page-break-inside: avoid; }
+		thead { display: table-header-group; }
+	}
+	@media screen and (max-width: 640px) {
+		table.memo-route td.k { width: 74px; font-size: 11px; }
+		.memo-items-wrap { overflow-x: auto; }
+	}
+</style>
+
+<div class="memo">
+
+	<div class="memo-head">
+		{%- if company.get("company_logo") %}<img src="{{ company.company_logo }}" alt="">{% endif %}
+		<h1>{{ company.name }}</h1>
+		{%- if company.get("phone_no") or company.get("fax") %}
+		<div class="addr">
+			{%- if company.get("phone_no") %}Tel: {{ company.phone_no }}{% endif -%}
+			{%- if company.get("fax") %} &nbsp;&middot;&nbsp; Fax: {{ company.fax }}{% endif -%}
+		</div>
+		{%- endif %}
+	</div>
+
+	<div class="memo-title"><span>Memo</span></div>
+
+	<table class="memo-route">
+		<tr>
+			<td class="k">From</td><td class="c">:</td>
+			<td class="v">{{ doc.get("memo_from") or "" }}</td>
+		</tr>
+		{%- if doc.get("through") %}
+		<tr>
+			<td class="k">Through</td><td class="c">:</td>
+			<td class="v">{{ doc.through }}</td>
+		</tr>
+		{%- endif %}
+		<tr>
+			<td class="k">To</td><td class="c">:</td>
+			<td class="v">{{ doc.get("memo_to") or "" }}</td>
+		</tr>
+		<tr>
+			<td class="k">Date</td><td class="c">:</td>
+			<td class="v">{{ frappe.utils.formatdate(doc.memo_date, "d MMMM yyyy") | upper }}</td>
+		</tr>
+		<tr>
+			<td class="k">Subject</td><td class="c">:</td>
+			<td class="v subject">{{ doc.get("subject") or "" }}</td>
+		</tr>
+	</table>
+
+	<hr class="memo-hr">
+
+	<div class="memo-body">
+		{{ doc.body }}
+	</div>
+
+	{%- if doc.get("show_items") and doc.get("items") %}
+	<div class="memo-items-wrap">
+	<table class="memo-items">
+		<thead>
+			<tr>
+				<th style="width:22%">Vendor</th>
+				<th style="width:24%">Item</th>
+				<th style="width:22%">Users</th>
+				<th class="num" style="width:8%">Qty</th>
+				<th class="num" style="width:12%">Unit Price ({{ cur }})</th>
+				<th class="num" style="width:12%">Sub Total ({{ cur }})</th>
+			</tr>
+		</thead>
+		<tbody>
+			{%- for row in doc.get("items") %}
+			<tr>
+				<td>{{ row.get("vendor") or "" }}</td>
+				<td>{{ row.get("item") or "" }}</td>
+				<td>{{ row.get("users") or "" }}</td>
+				<td class="num">{{ "{:,.0f}".format(row.get("qty") or 0) }}</td>
+				<td class="num">{{ "{:,.2f}".format(row.get("unit_price") or 0) }}</td>
+				<td class="num">{{ "{:,.2f}".format(row.get("sub_total") or 0) }}</td>
+			</tr>
+			{%- endfor %}
+			<tr class="total">
+				<td colspan="5">Total ({{ cur }})</td>
+				<td class="num">{{ "{:,.2f}".format(doc.get("total_amount") or 0) }}</td>
+			</tr>
+		</tbody>
+	</table>
+	</div>
+	{%- endif %}
+
+	{%- if doc.get("attachments_note") %}
+	<div class="memo-close">{{ doc.attachments_note }}</div>
+	{%- endif %}
+
+	{%- if doc.get("closing_line") %}
+	<div class="memo-close">{{ doc.closing_line }}</div>
+	{%- endif %}
+
+	<div class="memo-sign">
+		<div>Regards.</div>
+		<div class="line" style="margin-top:28px"></div>
+		<div class="nm">{{ doc.get("signatory_name") or "" }}</div>
+		{%- if doc.get("signatory_designation") %}
+		<div class="dg">{{ doc.signatory_designation }}</div>
+		{%- endif %}
+	</div>
+
+	{%- if doc.get("copy_to") %}
+	<div class="memo-copy">
+		<span class="k">Copy:</span>
+		<div>{{ doc.copy_to | replace("\n", "<br>") }}</div>
+	</div>
+	{%- endif %}
+
+	<div class="memo-foot">
+		<div>{{ doc.name }}</div>
+		<div>{{ company.name }}</div>
+	</div>
+
+</div>
+{%- endif -%}
