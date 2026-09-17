@@ -140,6 +140,10 @@ def validate_journal_entry(doc, method=None):
 	enforce_transaction_description(doc)
 	enforce_payable_direction(doc)
 
+	from ghana_accounting.attachments_payment_entry import validate_documents
+
+	validate_documents(doc)
+
 
 def set_voucher_class(doc):
 	try:
