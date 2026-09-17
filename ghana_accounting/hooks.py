@@ -45,6 +45,9 @@ doc_events = {
 	"Expense Claim": {
 		"validate": "ghana_accounting.claim_documents.validate_claim_documents",
 	},
+	"Payment Entry": {
+		"validate": "ghana_accounting.attachments_payment_entry.validate_documents",
+	},
 }
 
 doctype_js = {
