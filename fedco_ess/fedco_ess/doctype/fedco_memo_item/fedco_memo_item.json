@@ -1,0 +1,28 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": ["vendor", "item", "users", "qty", "unit_price", "sub_total"],
+ "fields": [
+  {"fieldname": "vendor", "fieldtype": "Data", "in_list_view": 1, "columns": 2, "label": "Vendor / Supplier"},
+  {"fieldname": "item", "fieldtype": "Data", "in_list_view": 1, "columns": 2, "label": "Item / Description", "reqd": 1},
+  {"fieldname": "users", "fieldtype": "Data", "in_list_view": 1, "columns": 2, "label": "User / Beneficiary"},
+  {"fieldname": "qty", "fieldtype": "Float", "in_list_view": 1, "columns": 1, "label": "Qty", "default": "1"},
+  {"fieldname": "unit_price", "fieldtype": "Currency", "in_list_view": 1, "columns": 2, "label": "Unit Price"},
+  {"fieldname": "sub_total", "fieldtype": "Currency", "in_list_view": 1, "columns": 2, "label": "Sub Total", "read_only": 1, "description": "Qty x Unit Price, calculated."}
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "FEDCO ESS",
+ "name": "FEDCO Memo Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "idx",
+ "sort_order": "ASC",
+ "states": []
+}
