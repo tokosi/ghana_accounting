@@ -126,7 +126,15 @@ def apply_approval_threshold(doc, method=None):
 	Overwrites whatever the claimant chose. Letting them keep their own
 	selection would make the thresholds advisory rather than a control.
 	"""
+# HRMS fills total_claimed_amount during its own validate, which can run
+	# after this hook. Summing the rows means the approver resolves on a first
+	# save rather than being left empty.
 	amount = flt(doc.get("total_claimed_amount")) or flt(doc.get("total_sanctioned_amount"))
+	if not amount:
+		amount = sum(
+			flt(r.get("sanctioned_amount")) or flt(r.get("amount"))
+			for r in (doc.get("expenses") or [])
+		)
 	if not amount:
 		return
 
