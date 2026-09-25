@@ -23,13 +23,12 @@ frappe.ui.form.on("Expense Claim", {
 		fedco_tidy_grids(frm);
 		fedco_show_level(frm);
 
-		// The claimant does not choose who approves; the amount does.
-		frm.set_df_property("expense_approver", "read_only", 1);
-		frm.set_df_property(
-			"expense_approver",
-			"description",
-			__("Set automatically from the claim amount.")
-		);
+	},
+
+	gh_sector_station(frm) {
+		if (frm.doc.gh_sector_station !== "Others") {
+			frm.set_value("gh_sector_other", null);
+		}
 	},
 
 	employee(frm) {
@@ -121,9 +120,8 @@ function fedco_show_level(frm) {
 						"This claim of {0} exceeds every approval limit. A board reference is required before it can be submitted.",
 						[format_currency(amount, frm.doc.currency)]
 				  )
-				: __("Approval level: <b>{0}</b> &mdash; approver {1}.", [
+				: __("Approval level: <b>{0}</b>. Routed automatically.", [
 						frm.doc.gh_approval_level,
-						frm.doc.expense_approver || __("not set"),
 				  ])
 		);
 	}
