@@ -1,0 +1,27 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": ["level_name", "max_amount", "approver_role", "approver_user", "requires_board"],
+ "fields": [
+  {"fieldname": "level_name", "fieldtype": "Data", "in_list_view": 1, "columns": 3, "label": "Level", "reqd": 1, "description": "e.g. Finance Head, Chief Executive"},
+  {"fieldname": "max_amount", "fieldtype": "Currency", "in_list_view": 1, "columns": 2, "label": "Approves Up To", "reqd": 1, "description": "Highest claim this level may approve."},
+  {"fieldname": "approver_role", "fieldtype": "Link", "in_list_view": 1, "columns": 2, "label": "Approver Role", "options": "Role", "description": "Any enabled holder of this role may approve."},
+  {"fieldname": "approver_user", "fieldtype": "Link", "in_list_view": 1, "columns": 3, "label": "Approver", "options": "User", "description": "A named approver. Takes precedence over the role."},
+  {"fieldname": "requires_board", "fieldtype": "Check", "in_list_view": 1, "columns": 1, "label": "Board"}
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ghana Accounting",
+ "name": "Ghana Claim Approval Level",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "idx",
+ "sort_order": "ASC",
+ "states": []
+}
