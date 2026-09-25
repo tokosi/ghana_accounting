@@ -43,7 +43,8 @@ doc_events = {
 		"validate": "ghana_accounting.voucher_rules.validate_journal_entry",
 	},
 	"Expense Claim": {
-		"validate": "ghana_accounting.claim_documents.validate_claim_documents",
+		"autoname": "ghana_accounting.expense_claim_rules.autoname_expense_claim",
+		"validate": "ghana_accounting.expense_claim_rules.validate_expense_claim",
 	},
 	"Payment Entry": {
 		"validate": "ghana_accounting.attachments_payment_entry.validate_documents",
@@ -51,5 +52,5 @@ doc_events = {
 }
 
 doctype_js = {
-	"Expense Claim": "public/js/expense_claim.js",
+	"Expense Claim": "public/js/expense_claim_ui.js",
 }
