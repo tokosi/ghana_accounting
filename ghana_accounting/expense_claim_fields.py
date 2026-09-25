@@ -9,6 +9,32 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 FIELDS = {
 	"Expense Claim": [
 		{
+			"fieldname": "gh_sector_station",
+			"fieldtype": "Select",
+			"label": "Sector / Station",
+			"options": "Head Office\nOperations\nOthers",
+			"default": "Head Office",
+			"insert_after": "department",
+			"reqd": 1,
+		},
+		{
+			"fieldname": "gh_sector_other",
+			"fieldtype": "Data",
+			"label": "Specify Sector / Station",
+			"insert_after": "gh_sector_station",
+			"depends_on": "eval:doc.gh_sector_station=='Others'",
+			"mandatory_depends_on": "eval:doc.gh_sector_station=='Others'",
+		},
+		{
+			"fieldname": "gh_sector_display",
+			"fieldtype": "Data",
+			"label": "Sector / Station (resolved)",
+			"insert_after": "gh_sector_other",
+			"read_only": 1,
+			"hidden": 1,
+			"print_hide": 1,
+		},
+		{
 			"fieldname": "gh_approval_level",
 			"fieldtype": "Data",
 			"label": "Approval Level",

@@ -87,25 +87,32 @@ def find_level(amount):
 	return None
 
 
-def resolve_approver(level, company=None):
-	"""A named user for the level, else the first active holder of its role."""
+def resolve_approver(level, claimant_user=None):
+	"""
+	A named user for the level, else an active holder of its role.
+
+	The claimant is excluded. HRMS treats a claim whose approver is the current
+	user as self-approved and submits it immediately, so assigning someone as
+	their own approver silently removes the control entirely.
+	"""
 	if not level:
 		return None
 
-	if level.get("approver_user"):
-		return level["approver_user"]
+	exclude = {"Administrator", "Guest"}
+	if claimant_user:
+		exclude.add(claimant_user)
+
+	named = level.get("approver_user")
+	if named:
+		return None if named in exclude else named
 
 	role = level.get("approver_role")
 	if not role:
 		return None
 
-	users = frappe.get_all(
-		"Has Role",
-		filters={"role": role, "parenttype": "User"},
-		pluck="parent",
-	)
+	users = frappe.get_all("Has Role", filters={"role": role, "parenttype": "User"}, pluck="parent")
 	for user in users:
-		if user in ("Administrator", "Guest"):
+		if user in exclude:
 			continue
 		if frappe.db.get_value("User", user, "enabled"):
 			return user
@@ -140,15 +147,25 @@ def apply_approval_threshold(doc, method=None):
 
 	doc.gh_approval_level = level.get("level_name")
 
-	approver = resolve_approver(level, doc.get("company"))
+	claimant = frappe.db.get_value("Employee", doc.get("employee"), "user_id") if doc.get("employee") else None
+	approver = resolve_approver(level, claimant_user=claimant)
+
 	if approver:
 		doc.expense_approver = approver
-	elif not doc.get("expense_approver"):
+	else:
 		frappe.throw(
-			_("No approver could be found for the {0} level. Set a user against that level in Ghana Accounting Settings.").format(
+			_("No approver is configured for the {0} level, or the only candidate is the claimant. Set a different user against that level in Ghana Accounting Settings.").format(
 				frappe.bold(level.get("level_name"))
 			),
 			title=_("Approver Not Configured"),
+		)
+
+	# HRMS auto-approves when the approver is the user saving the document.
+	# A claimant editing their own draft must never trip that.
+	if doc.expense_approver == frappe.session.user and frappe.session.user == claimant:
+		frappe.throw(
+			_("You cannot be the approver of your own claim."),
+			title=_("Self Approval"),
 		)
 
 
@@ -187,15 +204,48 @@ def get_employee_defaults(user=None):
 # ======================================================================
 # validate entry point
 # ======================================================================
+def resolve_sector(doc):
+	"""Collapse the Select and the free-text 'Others' into one printable value."""
+	if doc.get("gh_sector_station") == "Others" and doc.get("gh_sector_other"):
+		doc.gh_sector_display = doc.gh_sector_other
+	else:
+		doc.gh_sector_display = doc.get("gh_sector_station")
+
+
 def validate_expense_claim(doc, method=None):
+	resolve_sector(doc)
 	apply_approval_threshold(doc)
+	keep_draft_while_editing(doc)
 
 	try:
 		from ghana_accounting.claim_documents import validate_claim_documents
 
-		validate_claim_documents(doc)
+		# Attaching a file in a grid saves the document, so warning about a
+		# missing receipt on every save fires while the claimant is still
+		# attaching. The check belongs at submit.
+		validate_claim_documents(doc, warn=cint(doc.get("docstatus")) == 1)
 	except ImportError:
 		pass
+	except TypeError:
+		# older claim_documents without the warn argument
+		if cint(doc.get("docstatus")) == 1:
+			validate_claim_documents(doc)
+
+
+def keep_draft_while_editing(doc):
+	"""
+	Hold approval_status at Draft while the claimant edits.
+
+	HRMS submits an Expense Claim as soon as approval_status becomes Approved.
+	Without this, a save by anyone holding the approver role can submit a claim
+	that is still being filled in.
+	"""
+	if cint(doc.get("docstatus")) != 0:
+		return
+
+	claimant = frappe.db.get_value("Employee", doc.get("employee"), "user_id") if doc.get("employee") else None
+	if frappe.session.user == claimant and doc.get("approval_status") == "Approved":
+		doc.approval_status = "Draft"
 
 
 # ======================================================================
@@ -213,6 +263,10 @@ HIDE = [
 	("Expense Claim", "more_info_tab", "hidden", "1"),
 	# the series field is driven by autoname now
 	("Expense Claim", "naming_series", "hidden", "1"),
+	# the approver comes from the threshold table, so the claimant never sees
+	# or sets it
+	("Expense Claim", "expense_approver", "hidden", "1"),
+	("Expense Claim", "expense_approver", "reqd", "0"),
 ]
 
 
